@@ -228,7 +228,7 @@ ASF_MEMORY_PATH=./ai_memory.json
 
 ---
 
-## 🔗 Ligações
+## Ligações
 
 - **Repositório GitHub:** https://github.com/franciscocosta4/asf.git
 - **Relatório do projeto:** `trabalho-eng.software (1).pdf` (Secção 7 — Protótipo)
