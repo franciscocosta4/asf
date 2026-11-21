@@ -1,11 +1,9 @@
-"""Ponto de entrada principal do Agentic Software Factory (ASF)."""
+"""Ponto de entrada principal do Agentic Software Factory (ASF).
 
-from asf.cli import app
+Executa a TUI (Textual) interativa.
+"""
 
-
-def main() -> None:
-    """Executa o CLI da ASF."""
-    app()
+from asf.tui import main
 
 
 if __name__ == "__main__":

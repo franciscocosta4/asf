@@ -4,3 +4,4 @@ dataclasses-json
 pypdf
 python-dotenv
 PyYAML
+textual

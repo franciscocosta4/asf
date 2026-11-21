@@ -1,32 +1,53 @@
 # Agentic Software Factory (ASF) — Protótipo
 
-Repositório de implementação do protótipo da **Agentic Software Factory** (ASF), plataforma que recebe trabalho de Engenharia de Software sob a forma de **Issues** ou **User Stories** e coordena **agentes especializados** para analisar, planear, propor e validar alterações a um projeto de software.
+Repositório de implementação da **Agentic Software Factory** (ASF), plataforma que recebe trabalho de Engenharia de Software sob a forma de **Issues** ou **User Stories** e coordena **agentes especializados** para analisar, planear, propor e validar alterações a um projeto de software.
 
-O objetivo do protótipo é demonstrar uma **vertical slice** (seção 7.1 do relatório) de ponta a ponta: desde a submissão de uma Issue até à aprovação humana e registo de auditoria, com componentes simulados (Git repo e LLM podem ser mockados para demonstração sem credenciais).
+O protótipo está totalmente **TUI (Textual)** — uma interface interativa estilo "Claude Code", com:
+- Sidebar com lista de execuções
+- Área principal com chat/log em tempo real
+- Input integrado na base da janela
+- Atualizações assíncronas e reativas
 
+## Estado atual
 
-## estrutura do projeto (completa)
+Apenas a estrutura de pastas base existe:
+
+```
+asf/
+├── core/            ← criada (vazia, será populada em seguida)
+├── agents/
+├── tools/
+├── llm/
+├── tui/             ← TUI interativa (substitui CLI)
+├── main.py          ← entry point para TUI
+├── tui.py           ← aplicação Textual principal
+├── README.md        ← atualizado com TUI
+├── requirements.txt   ← atualizado com Textual
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+## Futura estrutura do projeto (completa)
 
 ```text
 asf/
 ├── asf/
 │   ├── __init__.py
-│   ├── main.py                # Ponto de entrada do pacote
-│   ├── cli.py                 # Interface principal: Typer (submeter, status, approve)
-│   ├── orchestrator.py        # Orquestrador central (coordena o fluxo entre agentes)
-│   ├── config.py              # Configurações globais (allowlists, paths, LLM endpoint)
+│   ├── main.py                # Ponto de entrada (TUI)
+│   ├── tui.py                 # Aplicação TUI principal (Textual)
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── models.py          # Modelos de dados: Issue, ChangeSet, AuditEntry, ToolRequest
-│   │   ├── state.py           # ASFState (dataclass partilhada entre agentes)
-│   │   ├── permissions.py     # Matriz de permissões por agente
-│   │   ├── tool_validator.py  # Validação de pedidos de ferramenta antes da execução
-│   │   ├── approval.py        # Fluxo de aprovação humana
-│   │   ├── audit.py           # Audit Log (registos imutáveis)
-│   │   └── memory.py          # AI Memory (memória contextual persistente)
+│   │   ├── models.py          # Modelos de dados
+│   │   ├── state.py           # ASFState (dataclass partilhada)
+│   │   ├── permissions.py     # Matriz de permissões
+│   │   ├── tool_validator.py  # Validação de ferramentas
+│   │   ├── approval.py        # Aprovação humana
+│   │   ├── audit.py           # Audit Log
+│   │   └── memory.py          # AI Memory
 │   ├── agents/
 │   │   ├── __init__.py
-│   │   ├── base.py            # Classe base Agent (interface comum)
+│   │   ├── base.py            # Classe base Agent
 │   │   ├── orchestrator_agent.py
 │   │   ├── requirements_agent.py
 │   │   ├── architecture_agent.py
@@ -35,13 +56,13 @@ asf/
 │   │   └── security_agent.py
 │   ├── tools/
 │   │   ├── __init__.py
-│   │   ├── base.py            # Tool base class + ToolRegistry
+│   │   ├── base.py            # Tool base + Registry
 │   │   ├── read_tools.py      # read_state, read_issue, read_docs, read_repo, grep
 │   │   ├── write_tools.py     # write_audit, update_memory, create_patch, exec_terminal
 │   │   └── analysis_tools.py  # run_tests, static_analysis, detect_injection
 │   ├── llm/
 │   │   ├── __init__.py
-│   │   └── client.py          # LLMClient (chat.iaedu.pt — GPT-5.5 via OpenAI SDK)
+│   │   └── client.py          # LLMClient (chat.iaedu.pt — GPT-5.5)
 │   └── mocks/
 │       ├── __init__.py
 │       ├── git_repo.py        # Repositório Git simulado (sistema de ficheiros)
@@ -51,8 +72,6 @@ asf/
 ├── .gitignore
 └── README.md
 ```
-
----
 
 ## Matriz de Permissões
 
@@ -67,14 +86,6 @@ Respeita estritamente a matriz do relatório. Cada agente tem ferramentas autori
 | Testing | `read_repo`, `run_tests` |
 | Security | `read_repo`, `static_analysis`, `detect_injection` |
 
-> **Condição essencial:** Os agentes **não** podem modificar livremente todos os campos do `ASFState`. Apenas o Orchestrator escreve no estado global; cada agente apenas lê os campos necessários e propõe alterações através do Orchestrator.
-
----
-
-## Validação de Ferramentas (Orchestrator)
-
-O Orchestrator valida **todos** os pedidos de ferramenta antes de executar. Não basta verificar permissões no início do workflow.
-
 ### Cadeia de validação de `exec_terminal`
 
 1. **Validar o agente** — Confirma que o agente solicitante tem permissão para `exec_terminal` (apenas Developer)
@@ -83,8 +94,6 @@ O Orchestrator valida **todos** os pedidos de ferramenta antes de executar. Não
 4. **Solicitar aprovação humana** — Pausa a execução e pede confirmação ao utilizador
 5. **Confirmação dupla** — Para operações destrutivas, exige confirmação adicional
 6. **Executar e registar** — Executa o comando e regista o resultado no Audit Log
-
----
 
 ## Troca entre Agentes
 
@@ -120,21 +129,17 @@ ASFState (dataclass)
 
 > Alternativa futura: migração para LangGraph (grafo de estado) se a complexidade aumentar.
 
----
-
 ## Ferramentas Python
 
 | Finalidade | Ferramenta | Uso |
 |------------|-----------|-----|
-| **Interface** | `typer` | CLI moderna com type hints, auto-ajuda e validação |
+| **Interface** | `textual` | TUI moderna com widgets, layout, CSS |
 | **Leitura de ficheiros** | `pypdf` | Extrair texto de PDFs (Issues, documentação) |
 | **Leitura de ficheiros** | `pathlib` | Manipulação de caminhos e leitura de ficheiros |
 | **Serialização** | `dataclasses-json` | Serializar/deserializar `Issue`, `ChangeSet`, `AuditEntry`, `ASFState` |
 | **LLM** | `openai` | Cliente para API do `chat.iaedu.pt` (GPT-5.5) |
 | **Configuração** | `python-dotenv` | Carregar credenciais do `.env` |
 | **YAML config** | `PyYAML` | Ficheiros de configuração |
-
----
 
 ## LLM — chat.iaedu.pt
 
@@ -144,57 +149,64 @@ O protótipo utiliza a API do **chat.iaedu.pt** com o modelo **GPT-5.5** (via Op
 - **Autenticação:** Chave de API no ficheiro `.env`
 - **Fallback:** Implementação de `llm/mock/llm.py` com respostas fixas para demonstração sem credenciais
 
----
+## Interface — Textual (TUI)
 
-## Interface — Typer
+A interface principal é uma **TUI Textual** com os seguintes elementos:
 
-A interface principal é uma **CLI Typer** com os seguintes comandos planeados:
+- **Sidebar** (esquerda): Lista de execuções (`ExecutionList`)
+- **Área principal** (direita): Log/Chat em tempo real (`ChatLog`)
+- **Input** (base): Campo de texto para submissão de Issues ou comandos
+- **Keybindings**:
+  - `Enter`: submeter texto
+  - `Ctrl+Q`: sair da aplicação
+  - `Ctrl+C`: cancelar operação em curso
 
-```bash
-# Submeter uma Issue (texto ou ficheiro)
-python -m asf.cli submit --issue "Adicionar login OAuth2"
-python -m asf.cli submit --file issues/issue_001.json
+### Fluxo típico:
+1. Usuário digita uma Issue no campo de input
+2. Pressiona `Enter`
+3. O TUI cria uma nova execução e mostra no sidebar
+4. Mensagens de cada agente aparecem no chat em tempo real
+5. Ao final, o estado é atualizado e o log mostra o resultado
 
-# Consultar estado de uma execução
-python -m asf.cli status --execution-id <id>
-
-# Aprovar ou rejeitar uma ação
-python -m asf.cli approve --execution-id <id> --decision approve
-python -m asf.cli approve --execution-id <id> --decision reject
-
-# Ver audit log
-python -m asf.cli audit --execution-id <id>
+### Fluxo simulado (exemplo):
 ```
-
----
+[Orchestrator] A classificar a Issue e delegar...
+[Requirements] A interpretar a Issue e derivar requisitos...
+[Architecture] A planear a execução e decompor em tarefas...
+[Developer] A gerar o ChangeSet (patch)...
+[Testing] A derivar e executar testes...
+[Security] A auditar a segurança da alteração...
+[Review] A revisar a alteração final...
+✅ Execução concluída com sucesso!
+```
 
 ## Instalação e Execução
 
 ```bash
-# Clonar o repositório
+# 1. Clonar o repositório
 git clone https://github.com/franciscocosta4/asf.git
 cd asf
 
-# Criar ambiente virtual
+# 2. Criar ambiente virtual
 python -m venv .venv
 source .venv/bin/activate   # Linux/Mac
 # ou .venv\Scripts\activate  # Windows
 
-# Instalar dependências
+# 3. Instalar dependências
 pip install -r requirements.txt
 
-# Configurar variáveis de ambiente
+# 4. Configurar variáveis de ambiente (opcional para protótipo com mock)
 cp .env.example .env
-# Editar .env com a chave da API chat.iaedu.pt (opcional para protótipo com mock)
+# Editar .env com a chave da API chat.iaedu.pt (opcional)
 
-# Executar
-python -m asf.cli submit --issue "Exemplo de Issue"
+# 5. Executar a TUI
+python -m asf.main
 ```
 
 ### `requirements.txt` (planeado)
 
-```text
-typer
+```
+textual
 openai
 dataclasses-json
 pypdf
@@ -213,24 +225,12 @@ ASF_AUDIT_LOG_PATH=./audit_log.json
 ASF_MEMORY_PATH=./ai_memory.json
 ```
 
----
-
-## Próximos Passos (ordem de implementação)
-
-1. **`core/`** — Modelos (`models.py`), Estado (`state.py`), Permissões (`permissions.py`), Validador de ferramentas (`tool_validator.py`), Aprovação (`approval.py`), Auditoria (`audit.py`), Memória (`memory.py`)
-2. **`tools/`** — Base + Registry, Read tools, Write tools, Analysis tools
-3. **`llm/`** — Cliente para chat.iaedu.pt + mock
-4. **`agents/`** — Classe base + 5 agentes especializados + orquestrador
-5. **`orchestrator.py`** — Orquestração do fluxo entre agentes
-6. **`cli.py`** — CLI Typer com comandos `submit`, `status`, `approve`, `audit`
-7. **`config.py`** — Configurações globais
-8. **Documentação** — Explicação de cada componente e decisões de arquitetura
-
----
-
 ## Ligações
 
 - **Repositório GitHub:** https://github.com/franciscocosta4/asf.git
 - **Relatório do projeto:** `trabalho-eng.software (1).pdf` (Secção 7 — Protótipo)
 - **Curso:** Engenharia de Informática, Universidade de Trás-os-Montes e Alto Douro
 
+## Licença
+
+MIT License — veja o ficheiro `LICENSE` (se aplicável).
