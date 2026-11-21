@@ -4,31 +4,8 @@ Repositório de implementação do protótipo da **Agentic Software Factory** (A
 
 O objetivo do protótipo é demonstrar uma **vertical slice** (seção 7.1 do relatório) de ponta a ponta: desde a submissão de uma Issue até à aprovação humana e registo de auditoria, com componentes simulados (Git repo e LLM podem ser mockados para demonstração sem credenciais).
 
----
 
-## 📋 Estado atual
-
-Apenas a estrutura de pastas base existe:
-
-```
-asf/
-├── core/            ← criada (vazia, será populada em seguida)
-├── agents/
-├── tools/
-├── llm/
-├── cli/
-├── orchestrator/
-├── config/
-├── README.md
-├── requirements.txt
-└── .env.example
-```
-
-> **Nota:** A pasta `core/` está vazia nesta versão inicial. Os ficheiros serão adicionados progressivamente.
-
----
-
-## 🏗️ Futura estrutura do projeto (completa)
+## estrutura do projeto (completa)
 
 ```text
 asf/
@@ -77,49 +54,7 @@ asf/
 
 ---
 
-## 🎯 Requisitos (do relatório)
-
-### Requisitos Funcionais (RF)
-
-| ID | Requisito | Descrição |
-|----|-----------|-----------|
-| US1 | Submeter Issue | Utilizador submete uma Issue/User Story à ASF |
-| US2 | Acompanhar Estado | Consultar o estado atual de uma execução |
-| US3 | Rastrear Pedido | Seguir o Issue original até ao resultado final |
-| US4 | Interpretar Issue e Derivar Requisitos | O agente Requirements extrai requisitos funcionais e não funcionais |
-| US5 | Decompor Objetivo em Tarefas | O agente Architecture/Planner cria o plano operacional |
-| US6 | Identificar Riscos e Decisões Críticas | O agente Security identifica riscos de segurança |
-| US7 | Replanear em Caso de Falha | O Orchestrator reage a erros e replaneia se necessário |
-| US8 | Analisar Impacto no Repositório | Avaliar quais ficheiros serão alterados |
-| US9 | Produzir ChangeSet | O agente Developer gera a proposta de alteração |
-| US10 | Validar Argumentos Antes de Executar | O Orchestrator valida pedidos de ferramenta |
-| US11 | Aplicar Menor Privilégio | Cada agente só acede às ferramentas da sua matriz |
-| US12 | Derivar e Executar Testes | O agente Testing cria e executa testes |
-| US13 | Auditar Segurança da Alteração | O agente Security analisa a proposta para vulnerabilidades |
-| US14 | Revisar Alteração Final | O agente Requirements faz revisão final |
-| US15 | Definir Condições de Conclusão | Critérios de aceite para encerrar a execução |
-| US16 | Classificar Fontes de Dados | Separar conteúdo trusted vs untrusted |
-| US17 | Detetar e Tratar Prompt Injection | Segurança contra injeção de instruções |
-| US18 | Aprovar ou Rejeitar Ações de Risco | Aprovação humana para escrita/execução |
-| US19 | Proteger Informação Sensível | Sem credenciais no código ou logs |
-| US20 | Registar Execuções para Auditoria | Audit Log imutável |
-| US21 | Reconstruir Sequência Operacional | Via Audit Log + AI Memory |
-| US22 | Registar Aprovações | Quem aprovou, quando e porquê |
-| US23 | Memorizar Factos do Projeto | AI Memory persiste contexto entre execuções |
-| US24 | Confirmar Gravação na Memória | Verificar que a memória foi persistida |
-
-### Requisitos Não Funcionais (RNF)
-
-- **Segurança:** Princípio do menor privilégio; escrita no repositório exige aprovação humana
-- **Auditoria:** Todas as decisões e ações registadas no Audit Log
-- **Rastreabilidade:** Cada alteração pode ser traçada ao Issue original
-- **Observabilidade:** Estado visível via CLI
-- **Extensibilidade:** Novos agentes e ferramentas podem ser adicionados sem reescrever o Orchestrator
-- **Simplicidade:** Arquitetura direta, sem dependências desnecessárias
-
----
-
-## 🔐 Matriz de Permissões
+## Matriz de Permissões
 
 Respeita estritamente a matriz do relatório. Cada agente tem ferramentas autorizadas específicas:
 
@@ -136,7 +71,7 @@ Respeita estritamente a matriz do relatório. Cada agente tem ferramentas autori
 
 ---
 
-## 🛡️ Validação de Ferramentas (Orchestrator)
+## Validação de Ferramentas (Orchestrator)
 
 O Orchestrator valida **todos** os pedidos de ferramenta antes de executar. Não basta verificar permissões no início do workflow.
 
@@ -151,7 +86,7 @@ O Orchestrator valida **todos** os pedidos de ferramenta antes de executar. Não
 
 ---
 
-## 🧠 Troca entre Agentes
+## Troca entre Agentes
 
 O modelo de troca baseia-se em **estado partilhado controlado**:
 
@@ -187,7 +122,7 @@ ASFState (dataclass)
 
 ---
 
-## 🛠️ Ferramentas Python
+## Ferramentas Python
 
 | Finalidade | Ferramenta | Uso |
 |------------|-----------|-----|
@@ -201,7 +136,7 @@ ASFState (dataclass)
 
 ---
 
-## 🤖 LLM — chat.iaedu.pt
+## LLM — chat.iaedu.pt
 
 O protótipo utiliza a API do **chat.iaedu.pt** com o modelo **GPT-5.5** (via OpenAI SDK, compatível com endpoint customizado).
 
@@ -211,7 +146,7 @@ O protótipo utiliza a API do **chat.iaedu.pt** com o modelo **GPT-5.5** (via Op
 
 ---
 
-## 🖥️ Interface — Typer
+## Interface — Typer
 
 A interface principal é uma **CLI Typer** com os seguintes comandos planeados:
 
@@ -233,7 +168,7 @@ python -m asf.cli audit --execution-id <id>
 
 ---
 
-## 📦 Instalação e Execução
+## Instalação e Execução
 
 ```bash
 # Clonar o repositório
@@ -280,7 +215,7 @@ ASF_MEMORY_PATH=./ai_memory.json
 
 ---
 
-## 🧭 Próximos Passos (ordem de implementação)
+## Próximos Passos (ordem de implementação)
 
 1. **`core/`** — Modelos (`models.py`), Estado (`state.py`), Permissões (`permissions.py`), Validador de ferramentas (`tool_validator.py`), Aprovação (`approval.py`), Auditoria (`audit.py`), Memória (`memory.py`)
 2. **`tools/`** — Base + Registry, Read tools, Write tools, Analysis tools
@@ -299,8 +234,3 @@ ASF_MEMORY_PATH=./ai_memory.json
 - **Relatório do projeto:** `trabalho-eng.software (1).pdf` (Secção 7 — Protótipo)
 - **Curso:** Engenharia de Informática, Universidade de Trás-os-Montes e Alto Douro
 
----
-
-## 📄 Licença
-
-MIT License — veja o ficheiro `LICENSE` (se aplicável).
