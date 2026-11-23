@@ -1,7 +1,3 @@
-typer
-openai
-dataclasses-json
-pypdf
-python-dotenv
-PyYAML
 textual
+python-dotenv
+pypdf

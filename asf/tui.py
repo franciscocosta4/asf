@@ -1,99 +1,70 @@
-"""TUI (Text User Interface) da Agentic Software Factory (ASF).
+"""TUI (Textual) da Agentic Software Factory (ASF).
 
-Esta é a interface principal do protótipo, implementada com Textual.
-Oferece uma experiência interativa estilo "Claude Code":
-- Sidebar com execuções
-- Área principal com chat/log
-- Input multi-linha na base
-- Atualizações em tempo real
+Chat com o LLM do chat.iaedu.pt: cada Issue submetida cria uma execução na
+sidebar, abre um ``thread_id`` novo e faz streaming da resposta para o chat.
 
-Comandos de teclado:
-    - Enter: submeter texto
-    - Ctrl+Q: sair
-    - Ctrl+C: cancelar operação em curso
+Teclas: Enter submete, Ctrl+Q sai.
 """
 
-import asyncio
 import json
+import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
+from rich.markup import escape
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
-from textual.reactive import reactive
-from textual.widgets import (
-    Footer,
-    Header,
-    Input,
-    Label,
-    ListView,
-    ListItem,
-    Static,
-)
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Footer, Header, Input, Label, ListItem, ListView, Static
 
+from asf.llm import LLMClient, LLMError
 
-# ---------------------------------------------------------------------------
-# Estado persistido em JSON (partilhado entre sessões)
-# ---------------------------------------------------------------------------
 STATE_FILE = Path(__file__).resolve().parents[1] / ".asf_state.json"
 
 
-def _load_state() -> dict:
+def _load_state() -> dict[str, Any]:
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text(encoding="utf-8"))
     return {"executions": {}, "audit": {}}
 
 
-def _save_state(state: dict) -> None:
+def _save_state(state: dict[str, Any]) -> None:
     STATE_FILE.write_text(
         json.dumps(state, indent=2, ensure_ascii=False, default=str),
         encoding="utf-8",
     )
 
 
-# ---------------------------------------------------------------------------
-# Widgets
-# ---------------------------------------------------------------------------
+class ChatLog(Static):
+    """Chat/log: linhas com markup e uma linha em streaming."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__("", **kwargs)
+        self._lines: list[str] = []
+        self._streaming = False
+
+    def append(self, text: str = "", style: str = "") -> None:
+        self._lines.append(f"[{style}]{text}[/{style}]" if style else text)
+        self._streaming = False
+        self.update("\n".join(self._lines))
+
+    def stream(self, delta: str) -> None:
+        """Acrescenta texto literal (escapado) à linha em streaming."""
+        if not self._streaming:
+            self._lines.append("")
+            self._streaming = True
+        self._lines[-1] += escape(delta)
+        self.update("\n".join(self._lines))
+
+
 class ExecutionList(ListView):
     """Lista de execuções na sidebar."""
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._items: dict[str, ListItem] = {}
-
     def add_execution(self, execution_id: str, issue: str) -> None:
-        item = ListItem(Label(f"[b]{execution_id}[/b]\n{issue[:40]}..."))
-        self._items[execution_id] = item
-        self.append(item)
-
-    def select_execution(self, execution_id: str) -> None:
-        if execution_id in self._items:
-            self.selected = self._items[execution_id]
+        self.append(ListItem(Label(f"[b]{execution_id}[/b]\n{escape(issue[:40])}")))
 
 
-class ChatLog(Static):
-    """Área principal com o chat/log de execução."""
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__("", **kwargs)
-        self._lines: list[str] = []
-
-    def append(self, text: str, style: str = "") -> None:
-        """Adiciona uma linha ao log."""
-        line = f"[{style}]{text}[/{style}]" if style else text
-        self._lines.append(line)
-        self.update("\n".join(self._lines))
-
-    def clear(self) -> None:
-        self._lines.clear()
-        self.update("")
-
-
-# ---------------------------------------------------------------------------
-# App principal
-# ---------------------------------------------------------------------------
 class ASFApp(App):
     """Aplicação TUI da Agentic Software Factory."""
 
@@ -101,51 +72,14 @@ class ASFApp(App):
     SUB_TITLE = "Protótipo v0.1.0"
 
     CSS = """
-    Screen {
-        background: $surface;
-    }
-
-    #sidebar {
-        width: 32;
-        height: 100%;
-        border: solid $primary;
-        padding: 1;
-    }
-
-    #main {
-        height: 1fr;
-        padding: 1;
-    }
-
-    #chat {
-        height: 1fr;
-        padding: 1;
-        background: $panel;
-    }
-
-    #input-area {
-        height: 3;
-        padding: 0 1;
-    }
-
-    #chat-input {
-        border: solid $primary;
-    }
-
-    #status-bar {
-        height: 1;
-        background: $primary;
-        color: $text;
-        padding: 0 1;
-    }
+    Screen { background: $surface; }
+    #sidebar { width: 32; height: 100%; border: solid $primary; padding: 1; }
+    #main { height: 1fr; padding: 1; }
+    #chat { height: 1fr; padding: 1; background: $panel; }
+    #chat-input { height: 3; margin-top: 1; border: solid $primary; }
     """
 
-    BINDINGS = [
-        Binding("ctrl+q", "quit", "Sair", show=True),
-        Binding("ctrl+c", "cancel", "Cancelar", show=True),
-    ]
-
-    current_execution_id: reactive[Optional[str]] = reactive(None)
+    BINDINGS = [Binding("ctrl+q", "quit", "Sair")]
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -155,45 +89,46 @@ class ASFApp(App):
                 yield ExecutionList()
             with Vertical(id="main"):
                 yield ChatLog(id="chat")
-                yield Input(placeholder="Submeta uma Issue ou comando...", id="chat-input")
+                yield Input(placeholder="Submeta uma Issue ou User Story...", id="chat-input")
         yield Footer()
 
     def on_mount(self) -> None:
-        """Carrega estado anterior ao iniciar."""
-        state = _load_state()
-        chat: ChatLog = self.query_one("#chat", ChatLog)
-        chat.append("Bem-vindo à [b]Agentic Software Factory[/b]!", "bold")
-        chat.append("Submeta uma Issue ou User Story para iniciar.", "dim")
-        chat.append("")
-        chat.append("Exemplo: [cyan]Adicionar login OAuth2 ao sistema[/cyan]")
-        chat.append("")
+        chat = self.query_one("#chat", ChatLog)
+        chat.append("[bold]Bem-vindo à Agentic Software Factory![/bold]")
+        chat.append("[dim]Submeta uma Issue ou User Story para falar com o LLM.[/dim]")
+        chat.append()
 
-        if state["executions"]:
-            exec_list: ExecutionList = self.query_one(ExecutionList)
-            for exec_id, data in state["executions"].items():
-                exec_list.add_execution(exec_id, data.get("issue", ""))
+        state = _load_state()
+        exec_list = self.query_one(ExecutionList)
+        for execution_id, data in state["executions"].items():
+            exec_list.add_execution(execution_id, data.get("issue", ""))
+
+        self.query_one("#chat-input", Input).focus()
 
     @on(Input.Submitted, "#chat-input")
     def submit_issue(self, event: Input.Submitted) -> None:
-        """Processa o texto submetido pelo utilizador."""
         text = event.value.strip()
+        event.input.value = ""
         if not text:
             return
 
-        event.input.value = ""
-        chat: ChatLog = self.query_one("#chat", ChatLog)
+        chat = self.query_one("#chat", ChatLog)
+        chat.append(f"[bold yellow]> {escape(text)}[/bold yellow]")
+        chat.append()
 
-        # Mostra o input do utilizador
-        chat.append(f"[bold yellow]> {text}[/bold yellow]")
-        chat.append("")
+        client = LLMClient()
+        if not client.configured:
+            chat.append("[bold red]❌ ASF_LLM_API_KEY não definida no .env[/bold red]")
+            return
 
-        # Cria nova execução
         state = _load_state()
         execution_id = f"exec-{len(state['executions']) + 1:04d}"
+        thread_id = client.new_thread()
         state["executions"][execution_id] = {
             "execution_id": execution_id,
-            "status": "received",
+            "status": "running",
             "issue": text,
+            "thread_id": thread_id,
             "current_agent": "orchestrator",
             "failure_reason": None,
         }
@@ -201,63 +136,81 @@ class ASFApp(App):
             {"event": "issue_received", "execution_id": execution_id, "issue": text}
         )
         _save_state(state)
-        self.current_execution_id = execution_id
 
-        # Atualiza sidebar
-        exec_list: ExecutionList = self.query_one(ExecutionList)
-        exec_list.add_execution(execution_id, text)
-
-        # Simula workflow
-        self._simulate_workflow(execution_id, text)
+        self.query_one(ExecutionList).add_execution(execution_id, text)
+        self._run_llm(execution_id, text, thread_id, client, chat)
 
     @work(thread=True)
-    async def _simulate_workflow(self, execution_id: str, issue: str) -> None:
-        """Simula o workflow ASF com os agentes especializados."""
-        chat: ChatLog = self.query_one("#chat", ChatLog)
+    def _run_llm(
+        self,
+        execution_id: str,
+        issue: str,
+        thread_id: str,
+        client: LLMClient,
+        chat: ChatLog,
+    ) -> None:
+        """Envia a Issue ao LLM e faz streaming da resposta para o chat."""
 
-        agents = [
-            ("Orchestrator", "A classificar a Issue e delegar...", "magenta"),
-            ("Requirements", "A interpretar a Issue e derivar requisitos...", "blue"),
-            ("Architecture", "A planear a execução e decompor em tarefas...", "cyan"),
-            ("Developer", "A gerar o ChangeSet (patch)...", "green"),
-            ("Testing", "A derivar e executar testes...", "yellow"),
-            ("Security", "A auditar a segurança da alteração...", "red"),
-            ("Review", "A revisar a alteração final...", "white"),
-        ]
+        def say(text: str = "", style: str = "") -> None:
+            self.call_from_thread(chat.append, text, style)
 
-        for agent_name, message, color in agents:
-            await asyncio.sleep(0.8)
-            chat.append(f"[{color}][{agent_name}][/] {message}")
+        say("[magenta][Orchestrator][/] A enviar a Issue ao LLM...")
+        say(f"[dim]thread_id: {thread_id}[/dim]")
+        say()
 
-        await asyncio.sleep(0.5)
-        chat.append("")
-        chat.append("[bold green]✅ Execução concluída com sucesso![/bold green]")
-        chat.append(f"[dim]execution_id: {execution_id}[/dim]")
-        chat.append("")
+        received = 0
+        failure: str | None = None
+        try:
+            for event in client.stream(issue, thread_id=thread_id):
+                kind, content = event.get("type"), event.get("content")
+                if kind == "token" and content:
+                    self.call_from_thread(chat.stream, content)
+                    received += 1
+                elif kind == "message" and received == 0 and isinstance(content, dict):
+                    text = content.get("content") or ""
+                    if text:
+                        self.call_from_thread(chat.stream, text)
+                        received += 1
+                elif kind == "error":
+                    failure = str(content)
+                    break
+        except LLMError as exc:
+            failure = str(exc)
+        except Exception as exc:  # noqa: BLE001 - a TUI não pode rebentar
+            failure = f"{type(exc).__name__}: {exc}"
 
-        # Atualiza estado final
+        say()
+        if failure:
+            say(f"[bold red]❌ {escape(failure)}[/bold red]")
+        elif received == 0:
+            failure = "resposta vazia do LLM"
+            say("[bold red]❌ O LLM não devolveu texto.[/bold red]")
+        else:
+            say("[bold green]✅ Resposta recebida.[/bold green]")
+        say(f"[dim]execution_id: {execution_id}[/dim]")
+        say()
+
+        self._finish(execution_id, failure)
+
+    def _finish(self, execution_id: str, failure: str | None) -> None:
+        """Grava o resultado da execução no estado e no audit."""
         state = _load_state()
-        state["executions"][execution_id]["status"] = "done"
-        state["executions"][execution_id]["current_agent"] = "completed"
-        state["audit"][execution_id].append(
-            {"event": "execution_completed", "execution_id": execution_id}
+        entry = state["executions"][execution_id]
+        entry["status"] = "failed" if failure else "done"
+        entry["current_agent"] = "orchestrator" if failure else "completed"
+        entry["failure_reason"] = failure
+        state["audit"].setdefault(execution_id, []).append(
+            {
+                "event": "execution_failed" if failure else "execution_completed",
+                "execution_id": execution_id,
+                **({"reason": failure} if failure else {}),
+            }
         )
         _save_state(state)
 
-    def action_cancel(self) -> None:
-        """Cancela a operação em curso."""
-        chat: ChatLog = self.query_one("#chat", ChatLog)
-        chat.append("[red]⚠ Operação cancelada pelo utilizador.[/red]")
-
-    def action_quit(self) -> None:
-        """Sai da aplicação."""
-        self.exit()
-
 
 def main() -> None:
-    """Ponto de entrada da TUI ASF."""
-    app = ASFApp()
-    app.run()
+    ASFApp().run()
 
 
 if __name__ == "__main__":
