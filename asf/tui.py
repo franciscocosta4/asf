@@ -22,6 +22,9 @@ from asf.llm import LLMClient, LLMError
 
 STATE_FILE = Path(__file__).resolve().parents[1] / ".asf_state.json"
 
+#: Cor (markup Rich) das respostas do LLM. Trocar para "grey70" para cinza.
+REPLY_STYLE = "white"
+
 
 def _load_state() -> dict[str, Any]:
     if STATE_FILE.exists():
@@ -49,12 +52,15 @@ class ChatLog(Static):
         self._streaming = False
         self.update("\n".join(self._lines))
 
-    def stream(self, delta: str) -> None:
+    def stream(self, delta: str, style: str = REPLY_STYLE) -> None:
         """Acrescenta texto literal (escapado) à linha em streaming."""
         if not self._streaming:
             self._lines.append("")
             self._streaming = True
-        self._lines[-1] += escape(delta)
+        fragment = escape(delta)
+        if style:
+            fragment = f"[{style}]{fragment}[/{style}]"
+        self._lines[-1] += fragment
         self.update("\n".join(self._lines))
 
 
@@ -75,7 +81,7 @@ class ASFApp(App):
     Screen { background: $surface; }
     #sidebar { width: 32; height: 100%; border: solid $primary; padding: 1; }
     #main { height: 1fr; padding: 1; }
-    #chat { height: 1fr; padding: 1; background: $panel; }
+    #chat { height: 1fr; padding: 1; background: $panel; color: $text; }
     #chat-input { height: 3; margin-top: 1; border: solid $primary; }
     """
 
